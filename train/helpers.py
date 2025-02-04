@@ -1,8 +1,6 @@
 import numpy as np
 import torch
 
-from torch_cluster import knn_graph
-
 def compute_metrics(all_metrics, true_edge_index, knn_edge_index, edge_probabilities, threshold=0.2):
     candidate_edges = knn_edge_index.cpu().numpy()
     predicted_edges = [tuple(candidate_edges[:, i]) for i in range(candidate_edges.shape[1]) if edge_probabilities[i] >= threshold]
@@ -25,33 +23,38 @@ def compute_metrics(all_metrics, true_edge_index, knn_edge_index, edge_probabili
     all_metrics.append((tp, fp, fn, precision, recall, f1))
 
 def align_edge_indices(edge_index1, edge_index2):
-    """
-    Align two edge index tensors by inserting zeros for missing edges.
-
-    Parameters:
-    edge_index1 (torch.Tensor): The first edge index of shape [2, num_edges1].
-    edge_index2 (torch.Tensor): The second edge index of shape [2, num_edges2].
-
-    Returns:
-    torch.Tensor: Aligned edge indices for edge_index1 and edge_index2.
-    torch.Tensor: Corresponding labels (1 for real edges, 0 for padded ones).
-    """
-    # Convert edge_index tensors to sets for easy comparison
     edge_set1 = set(map(tuple, edge_index1.t().tolist()))
     edge_set2 = set(map(tuple, edge_index2.t().tolist()))
 
-    # Find unique edges in each set
-    only_in_1 = edge_set1 - edge_set2
-    only_in_2 = edge_set2 - edge_set1
+    # print(f"Number of common edges: {len(edge_set1 & edge_set2)}")
 
-    # Prepare aligned edge list and labels
     aligned_edges = list(edge_set1.union(edge_set2))
     aligned_labels1 = [1 if edge in edge_set1 else 0 for edge in aligned_edges]
-    aligned_labels2 = [1 if edge in edge_set2 else 0 for edge in aligned_edges]
 
-    # Convert back to torch tensors
     aligned_edge_index = torch.tensor(aligned_edges, dtype=torch.long).t()
     label1 = torch.tensor(aligned_labels1, dtype=torch.float32)
-    label2 = torch.tensor(aligned_labels2, dtype=torch.float32)
 
-    return aligned_edge_index, label1, label2
+    return aligned_edge_index, label1
+
+def sample_negative_edges(edge_index, num_nodes, num_neg_samples):
+    neg_edges = []
+    while len(neg_edges) < num_neg_samples:
+        src = torch.randint(0, num_nodes, (1,))
+        dest = torch.randint(0, num_nodes, (1,))
+        if src != dest and (src.item(), dest.item()) not in edge_index.t().tolist():
+            neg_edges.append((src.item(), dest.item()))
+    return torch.tensor(neg_edges, dtype=torch.long).t()
+
+class MinMaxScalerColumns:
+    def __call__(self, data):
+        # Compute the min and max per column
+        col_min = data.x.min(dim=0, keepdim=True).values
+        col_max = data.x.max(dim=0, keepdim=True).values
+
+        # Avoid division by zero by setting small epsilon where max == min
+        col_range = col_max - col_min
+        col_range[col_range == 0] = 1e-9
+
+        # Rescale each column to [0, 1]
+        data.x = (data.x - col_min) / col_range
+        return data

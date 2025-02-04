@@ -1,18 +1,18 @@
 import torch
-from torch_cluster import knn_graph
+from torch_geometric.nn import knn_graph
 
 from helpers import align_edge_indices, compute_metrics
 
-def train(model, device, optimizer, criterion, train_loader, k=16):
+def train(model, device, optimizer, criterion, train_loader, k):
     model.train()
     total_loss = 0
 
     for batch in train_loader:
         x, edge_index = batch.x, batch.edge_index
         knn_edge_index = knn_graph(x, k=k, batch=batch.batch)
-        
-        aligned_edge_index, true_labels, knn_labels = align_edge_indices(edge_index, knn_edge_index)
 
+        aligned_edge_index, true_labels = align_edge_indices(edge_index, knn_edge_index)
+        
         x = x.to(device)
         aligned_edge_index = aligned_edge_index.to(device)
         true_labels = true_labels.to(device)
@@ -20,6 +20,7 @@ def train(model, device, optimizer, criterion, train_loader, k=16):
         optimizer.zero_grad()
         predictions = model(x, aligned_edge_index)
         loss = criterion(predictions.squeeze(), true_labels)
+
         loss.backward()
         optimizer.step()
 
@@ -27,24 +28,21 @@ def train(model, device, optimizer, criterion, train_loader, k=16):
 
     print(f"Train loss: {total_loss:.4f}")
 
-def test(model, device, test_loader, k=16, threshold=0.5):
+@torch.no_grad()
+def test(model, device, test_loader, k, threshold=0.5):
     model.eval()
     all_metrics = []
     
-    with torch.no_grad():
-        for batch in test_loader:
-            x, true_edge_index = batch.x, batch.edge_index
-            
-            knn_edge_index = knn_graph(x, k=k, batch=batch.batch)
+    for batch in test_loader:
+        x, true_edge_index = batch.x, batch.edge_index
+        knn_edge_index = knn_graph(x, k=k, batch=batch.batch)
 
-            x = x.to(device)
-            knn_edge_index = knn_edge_index.to(device)
-            true_edge_index = true_edge_index.to(device)
+        x = x.to(device)
+        knn_edge_index = knn_edge_index.to(device)
 
-            edge_probabilities = model(x, knn_edge_index).cpu().numpy().squeeze()
-            print(edge_probabilities)
-            
-            compute_metrics(all_metrics, true_edge_index, knn_edge_index, edge_probabilities, threshold)
+        edge_probabilities = model(x, knn_edge_index).cpu().numpy().squeeze()
+        
+        compute_metrics(all_metrics, true_edge_index, knn_edge_index, edge_probabilities, threshold)
             
     metrics_tensor = torch.tensor(all_metrics, dtype=torch.float32)
     mean_metrics = metrics_tensor.mean(dim=0)

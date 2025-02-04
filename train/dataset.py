@@ -12,11 +12,10 @@ class PointCloudGraphDataset(Dataset):
         
         self.transform = transform
 
-    def len(self):
+    def __len__(self):
         return len(self.graphs)
 
-    def get(self, idx):
+    def __getitem__(self, idx):
         if self.transform:
             return self.transform(self.graphs[idx])
-
         return self.graphs[idx]

@@ -31,16 +31,17 @@ class GraphBuilder:
 
                 G = nx.Graph()
                 for i in range(len(event["MD_0_x"])):
-                    G.add_node(i, x1=event["MD_0_x"][i], y1=event["MD_0_y"][i], z1=event["MD_0_z"][i], x2=event["MD_1_x"][i], y2=event["MD_1_y"][i], z2=event["MD_1_z"][i], layer=event["MD_layer"][i])
+                    G.add_node(i, x1=event["MD_0_x"][i], y1=event["MD_0_y"][i], z1=event["MD_0_z"][i], x2=event["MD_1_x"][i], y2=event["MD_1_y"][i], z2=event["MD_1_z"][i], eta=event["MD_eta"][i], phi=event["MD_phi"][i], dphichange=event["MD_dphichange"][i])
                 G.add_edges_from(edges)
 
                 yield G
 
     def process_and_save_graph(self, idx_event):
         idx, event = idx_event
-        graph = from_networkx(event, group_node_attrs=["x1", "y1", "z1", "x2", "y2", "z2", "layer"])
-        with open(f"{self.output_path}/graph_{idx}.pkl", "wb") as f:
+        graph = from_networkx(event, group_node_attrs=["x1", "y1", "z1", "x2", "y2", "z2", "eta", "phi", "dphichange"])
+        with open(f"{self.output_path}/graph_nolayer_{idx}.pkl", "wb") as f:
             pkl.dump(graph, f)
+        print(f"Saved graph {idx}")
 
     def save_graphs(self):
         with Pool(4) as pool:
