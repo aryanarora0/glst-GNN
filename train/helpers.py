@@ -3,15 +3,12 @@ import torch
 
 class MinMaxScalerColumns:
     def __call__(self, data):
-        # Compute the min and max per column
         col_min = data.x.min(dim=0, keepdim=True).values
         col_max = data.x.max(dim=0, keepdim=True).values
 
-        # Avoid division by zero by setting small epsilon where max == min
         col_range = col_max - col_min
         col_range[col_range == 0] = 1e-9
 
-        # Rescale each column to [0, 1]
         data.x = (data.x - col_min) / col_range
         return data
 

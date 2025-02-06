@@ -5,12 +5,13 @@ def train(model, device, optimizer, criterion, train_loader):
     model.train()
     total_loss = 0
 
-    for batch in train_loader:
-        x, edge_index = batch.x, batch.edge_index
+    for data in train_loader:
+        x, edge_index, batch = data.x, data.edge_index, data.batch
         x = x.to(device)
+        batch = batch.to(device)
 
         optimizer.zero_grad()
-        predictions, predicted_edge_index = model(x)
+        predictions, predicted_edge_index = model(x, batch=batch)
 
         true_edges_labels, _, aligned_probabilities = align_edge_indices(edge_index, predicted_edge_index, predictions)
         loss = criterion(aligned_probabilities, true_edges_labels)
@@ -28,11 +29,12 @@ def test(model, device, test_loader, threshold=0.5):
     model.eval()
     all_metrics = []
     
-    for batch in test_loader:
-        x, edge_index = batch.x, batch.edge_index
+    for data in test_loader:
+        x, edge_index, batch = data.x, data.edge_index, data.batch
         x = x.to(device)
+        batch = batch.to(device)
 
-        predictions, predicted_edge_indices = model(x)
+        predictions, predicted_edge_indices = model(x, batch=batch)
         
         predictions = predictions.cpu().numpy()
         predicted_edge_indices = predicted_edge_indices.cpu().numpy()

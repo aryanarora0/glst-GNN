@@ -14,13 +14,13 @@ from helpers import MinMaxScalerColumns
 if __name__ == "__main__":
     transform = T.Compose([T.ToUndirected(), MinMaxScalerColumns()])
 
-    dataset = PointCloudGraphDataset(input_path='../data/nolayer/', regex='graph_nolayer_[0-9].pkl', transform=transform)
+    dataset = PointCloudGraphDataset(input_path='../data/nolayer/', regex='graph_nolayer_*.pkl', transform=transform)
 
     test_size = 0.2
     train_dataset, test_dataset = random_split(dataset, [1 - test_size, test_size])
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=1)    
+    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=4)    
 
     print("Train dataset length:", len(train_dataset))
     print("Test dataset length:", len(test_dataset))
