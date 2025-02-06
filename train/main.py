@@ -14,15 +14,13 @@ from helpers import MinMaxScalerColumns
 if __name__ == "__main__":
     transform = T.Compose([T.ToUndirected(), MinMaxScalerColumns()])
 
-    dataset = PointCloudGraphDataset(input_path='../data/nolayer/', regex='graph_*.pkl', transform=transform)
+    dataset = PointCloudGraphDataset(input_path='../data/nolayer/', regex='graph_nolayer_[0-9].pkl', transform=transform)
 
-    train_size = 0.75
-    test_size = 1 - train_size
+    test_size = 0.2
+    train_dataset, test_dataset = random_split(dataset, [1 - test_size, test_size])
 
-    train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
-
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=2)    
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=1)    
 
     print("Train dataset length:", len(train_dataset))
     print("Test dataset length:", len(test_dataset))
@@ -33,12 +31,10 @@ if __name__ == "__main__":
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    criterion = torch.nn.BCEWithLogitsLoss()
+    criterion = torch.nn.BCELoss()
 
-    k = 4
-
-    for epoch in range(3):
+    for epoch in range(8):
         print(f"Epoch {epoch}: ", end='')
-        train(model, device, optimizer, criterion, train_loader, k=k)
+        train(model, device, optimizer, criterion, train_loader)
 
-    test(model, device, test_loader, k=k, threshold=0.5)
+    test(model, device, test_loader, threshold=0.3)
