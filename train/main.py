@@ -19,15 +19,20 @@ if __name__ == "__main__":
     test_size = 0.2
     train_dataset, test_dataset = random_split(dataset, [1 - test_size, test_size])
 
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=4)    
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=8)    
 
     print("Train dataset length:", len(train_dataset))
     print("Test dataset length:", len(test_dataset))
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    model = EdgePredictionGNN(num_node_features=dataset[0].num_node_features, k=16)
+    model = EdgePredictionGNN(
+        in_channels=dataset[0].num_node_features,
+        emb_channels=32,
+        hidden_channels=32,
+        k=16
+    )
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)

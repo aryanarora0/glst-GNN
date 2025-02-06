@@ -2,40 +2,45 @@ import torch
 import torch.nn as nn
 from torch_geometric.nn import DynamicEdgeConv, knn_graph
     
-class MLP(nn.Module):
-    def __init__(self, n_in, n_out, n_hidden=20, c=False):
-        super().__init__()
-        layers = [
-            nn.Linear(n_in, n_hidden),
-            nn.BatchNorm1d(n_hidden),
-            nn.LeakyReLU(0.1),
-            nn.Linear(n_hidden, n_out)
-        ]
-        if c:
-            layers.append(nn.Sigmoid())
-        self.seq = nn.Sequential(*layers)
-
-    def forward(self, *args, **kwargs):
-        return self.seq(*args, **kwargs)
-    
-
-class EdgePredictionGNN(nn.Module):
-    def __init__(self, num_node_features, hidden_channels=128, out_channels=64, k=4):
+class EdgePredictionGNN(torch.nn.Module):
+    def __init__(self,
+                 in_channels,
+                 emb_channels,
+                 hidden_channels,
+                 k=16):
         super(EdgePredictionGNN, self).__init__()
         self.k = k
-        self.conv1 = DynamicEdgeConv(MLP(2 * num_node_features, out_channels), k)
-        # self.conv2 = DynamicEdgeConv(MLP(hidden_channels, out_channels), k)
-        self.link_predictor = MLP(2 * out_channels, 1, c=True)
+        self.conv1 = DynamicEdgeConv(
+            nn=nn.Sequential(
+                nn.Linear(2 * in_channels, emb_channels),
+                nn.ReLU(),
+                nn.Linear(emb_channels, emb_channels)
+            ),
+            k=k
+        )
+        self.conv2 = DynamicEdgeConv(
+            nn=nn.Sequential(
+                nn.Linear(2 * emb_channels, emb_channels),
+                nn.ReLU(),
+                nn.Linear(emb_channels, emb_channels)
+            ),
+            k=k
+        )
+        self.mlp = nn.Sequential(
+            nn.Linear(2 * emb_channels, hidden_channels),
+            nn.ReLU(),
+            nn.Linear(hidden_channels, 1),
+            nn.Sigmoid()
+        )
 
-    def predict_links(self, x, edge_index):
-        src, dst = edge_index
-        edge_features = torch.cat([x[src], x[dst]], dim=1)
-        link_probs = self.link_predictor(edge_features)
-        return link_probs
-    
     def forward(self, x, batch):
         x = self.conv1(x, batch=batch)
-        # x = self.conv2(x)
-        edge_index = knn_graph(x, self.k, batch=batch)
-        link_probs = self.predict_links(x, edge_index)
+        x = self.conv2(x, batch=batch)
+        
+        edge_index = knn_graph(x, self.k, batch=batch, loop=False)
+
+        src, dst = edge_index
+        edge_features = torch.cat([x[src], x[dst]], dim=1)
+        link_probs = self.mlp(edge_features)
+
         return link_probs, edge_index

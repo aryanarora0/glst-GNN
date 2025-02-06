@@ -43,7 +43,6 @@ def align_edge_indices(true_edges, predicted_edges, probabilities):
     aligned_edge_index = torch.tensor(aligned_edges, dtype=torch.long).t()
 
     true_edges_labels = torch.tensor([1 if edge in true_edges_set else 0 for edge in aligned_edges], dtype=torch.float32, requires_grad=True)
-
     aligned_probabilities = torch.tensor([predicted_edge_to_prob.get(edge, 0.0) for edge in aligned_edges], dtype=torch.float32, requires_grad=True)
 
     return true_edges_labels, aligned_edge_index, aligned_probabilities
