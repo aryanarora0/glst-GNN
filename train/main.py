@@ -27,14 +27,14 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
-    model = EdgePredictionGNN(num_node_features=dataset[0].num_node_features)
+    model = EdgePredictionGNN(num_node_features=dataset[0].num_node_features, k=16)
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
     criterion = torch.nn.BCELoss()
 
-    for epoch in range(8):
+    for epoch in range(10):
         print(f"Epoch {epoch}: ", end='')
         train(model, device, optimizer, criterion, train_loader)
 
-    test(model, device, test_loader, threshold=0.3)
+    test(model, device, test_loader, threshold=0.9)

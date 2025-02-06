@@ -15,7 +15,7 @@ class MinMaxScalerColumns:
         data.x = (data.x - col_min) / col_range
         return data
 
-def compute_metrics(all_metrics, true_edge_index, candidate_edges, edge_probabilities, threshold=0.5):
+def compute_metrics(all_metrics, true_edge_index, candidate_edges, edge_probabilities, threshold=0.9):
     predicted_edges = [tuple(candidate_edges[:, i]) for i in range(candidate_edges.shape[1]) if edge_probabilities[i] >= threshold]
 
     true_edges_set = set(tuple(true_edge_index[:, i].tolist()) for i in range(true_edge_index.shape[1]))

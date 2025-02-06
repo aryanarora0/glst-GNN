@@ -1,4 +1,3 @@
 *.root
-*.pkl
-!graph_0.pkl
+layer/
 __pycache__
