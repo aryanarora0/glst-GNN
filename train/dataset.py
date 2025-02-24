@@ -2,12 +2,16 @@ from torch_geometric.data import Dataset
 import pickle
 from glob import glob
 
-class PointCloudGraphDataset(Dataset):
-    def __init__(self, input_path, regex, transform=None):
+class GraphDataset(Dataset):
+    def __init__(self, input_path, regex, subset=-1, transform=None):
         super().__init__()
         self.graphs = []
-        for file in glob(input_path + regex):
-            self.graphs.append(pickle.load(open(file, 'rb')))
+        files = glob(input_path + regex)
+        for file in files[:subset]:
+            with open(file, 'rb') as f:
+                graph = pickle.load(f)
+                if graph is not None:
+                    self.graphs.append(graph)
         print(f"Loaded {len(self.graphs)} graphs")
         
         self.transform = transform

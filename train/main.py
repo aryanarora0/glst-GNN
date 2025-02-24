@@ -1,26 +1,37 @@
+from argparse import ArgumentParser
+
 import torch
 torch.manual_seed(42)
 import torch.optim as optim
 
 from torch_geometric.loader import DataLoader
 import torch_geometric.transforms as T
-from torch.utils.data import random_split
+
+from sklearn.model_selection import train_test_split
 
 from model import EdgePredictionGNN
-from dataset import PointCloudGraphDataset
+from dataset import GraphDataset
 from train import train, test
-from helpers import MinMaxScalerColumns
+from helpers import PerformanceEvaluator, plot_loss
 
 if __name__ == "__main__":
-    transform = T.Compose([T.ToUndirected(), MinMaxScalerColumns()])
+    argparser = ArgumentParser()
+    argparser.add_argument('--epochs', type=int, default=31, help='number of epochs to train')
+    argparser.add_argument('--debug', action='store_true', help='debug mode')
+    args = argparser.parse_args()
 
-    dataset = PointCloudGraphDataset(input_path='../data/nolayer/', regex='graph_nolayer_*.pkl', transform=transform)
+    transform = T.Compose([T.LocalDegreeProfile()])
+
+    if args.debug:
+        dataset = GraphDataset(input_path='../data/relval/', regex='graph_nolayer_*.pkl', subset=10, transform=transform)
+    else:
+        dataset = GraphDataset(input_path='../data/relval/', regex='graph_nolayer_*.pkl', transform=transform)
 
     test_size = 0.2
-    train_dataset, test_dataset = random_split(dataset, [1 - test_size, test_size])
+    train_dataset, test_dataset = train_test_split(dataset, test_size=test_size, random_state=42)
 
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True)
-    test_loader = DataLoader(test_dataset, batch_size=8)    
+    train_loader = DataLoader(train_dataset, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
+    test_loader = DataLoader(test_dataset, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)    
 
     print("Train dataset length:", len(train_dataset))
     print("Test dataset length:", len(test_dataset))
@@ -29,17 +40,29 @@ if __name__ == "__main__":
 
     model = EdgePredictionGNN(
         in_channels=dataset[0].num_node_features,
-        emb_channels=32,
-        hidden_channels=32,
-        k=16
+        emb_channels=64,
+        hidden_channels=16,
     )
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    criterion = torch.nn.BCELoss()
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1000], device=device))
+    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=4, gamma=0.1)
 
-    for epoch in range(10):
+    train_loss, test_loss = [], []
+    for epoch in range(args.epochs):
         print(f"Epoch {epoch}: ", end='')
-        train(model, device, optimizer, criterion, train_loader)
+        tr_loss = train(model, device, optimizer, lr_scheduler, criterion, train_loader)
+        train_loss.append(tr_loss)
 
-    test(model, device, test_loader, threshold=0.9)
+        if epoch % 10 == 0:
+            te_loss = test(model, device, criterion, test_loader)
+            test_loss.append(te_loss)
+            print(f"Train Loss: {tr_loss:.4f}, Test loss: {te_loss:.4f}")
+        else:
+            print(f"Train Loss: {tr_loss:.4f}") 
+
+    pe = PerformanceEvaluator(model, device, train_loader, test_loader)
+    pe.plot_precision_recall_curve()
+    pe.plot_roc_curve()
+    plot_loss(train_loss, test_loss)

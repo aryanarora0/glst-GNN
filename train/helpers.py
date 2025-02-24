@@ -1,48 +1,89 @@
 import numpy as np
 import torch
 
-class MinMaxScalerColumns:
-    def __call__(self, data):
-        col_min = data.x.min(dim=0, keepdim=True).values
-        col_max = data.x.max(dim=0, keepdim=True).values
+from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve
 
-        col_range = col_max - col_min
-        col_range[col_range == 0] = 1e-9
+import mplhep as hep
+hep.style.use(hep.style.CMS)
+import matplotlib.pyplot as plt
 
-        data.x = (data.x - col_min) / col_range
-        return data
+class PerformanceEvaluator:
+    def __init__(self, model, device, train_loader, test_loader):
+        self.model = model
+        self.device = device
+        self.train_loader = train_loader
+        self.test_loader = test_loader
 
-def compute_metrics(all_metrics, true_edge_index, candidate_edges, edge_probabilities, threshold=0.9):
-    predicted_edges = [tuple(candidate_edges[:, i]) for i in range(candidate_edges.shape[1]) if edge_probabilities[i] >= threshold]
+        self.train_predictions = torch.tensor([], device=device)
+        self.train_labels = torch.tensor([], device=device)
+        self.test_predictions = torch.tensor([], device=device)
+        self.test_labels = torch.tensor([], device=device)
+        self.model.eval()
+        with torch.no_grad():
+            for data in self.train_loader:
+                x, edge_index, edge_attr, y = data.x, data.edge_index, data.edge_attr, data.y
+                x = x.to(self.device)
+                edge_index = edge_index.to(self.device)
+                edge_attr = edge_attr.to(self.device)
+                y = y.to(self.device)
+                pred = self.model(x, edge_index, edge_attr).squeeze()
+                self.train_predictions = torch.cat((self.train_predictions, pred))
+                self.train_labels = torch.cat((self.train_labels, y))
 
-    true_edges_set = set(tuple(true_edge_index[:, i].tolist()) for i in range(true_edge_index.shape[1]))
-    predicted_edges_set = set(predicted_edges)
+            for data in self.test_loader:
+                x, edge_index, edge_attr, y = data.x, data.edge_index, data.edge_attr, data.y
+                x = x.to(self.device)
+                edge_index = edge_index.to(self.device)
+                edge_attr = edge_attr.to(self.device)
+                y = y.to(self.device)
+                pred = self.model(x, edge_index, edge_attr).squeeze()
+                self.test_predictions = torch.cat((self.test_predictions, pred))
+                self.test_labels = torch.cat((self.test_labels, y))
 
-    true_positive_edges = predicted_edges_set & true_edges_set
-    false_positive_edges = predicted_edges_set - true_edges_set
-    false_negative_edges = true_edges_set - predicted_edges_set
+        self.train_predictions = self.train_predictions.cpu().numpy()
+        self.train_labels = self.train_labels.cpu().numpy()
+        self.test_predictions = self.test_predictions.cpu().numpy()
+        self.test_labels = self.test_labels.cpu().numpy()
 
-    tp = len(true_positive_edges)
-    fp = len(false_positive_edges)
-    fn = len(false_negative_edges)
+    def plot_precision_recall_curve(self, save_path='plots/precision_recall_curve.png'):
+        self.train_precision, self.train_recall, _ = precision_recall_curve(self.train_labels, self.train_predictions)
+        self.test_precision, self.test_recall, _ = precision_recall_curve(self.test_labels, self.test_predictions)
 
-    precision = tp / (tp + fp) if tp + fp > 0 else 0.0
-    recall = tp / (tp + fn) if tp + fn > 0 else 0.0
-    f1 = 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0.0
+        fig, ax = plt.subplots()
+        ax.plot(self.train_recall[5:], self.train_precision[5:])
+        ax.plot(self.test_recall[5:], self.test_precision[5:])
+        ax.set_xlabel('Recall')
+        ax.set_ylabel('Precision')
+        ax.set_title('Precision-Recall Curve')
+        ax.legend(loc='upper right')
 
-    all_metrics.append((tp, fp, fn, precision, recall, f1))
+        plt.savefig(save_path)
 
-def align_edge_indices(true_edges, predicted_edges, probabilities):
-    true_edges_set = set(map(tuple, true_edges.t().tolist()))
-    predicted_edges_set = set(map(tuple, predicted_edges.t().tolist()))
+    def plot_roc_curve(self, save_path='plots/roc_curve.png'):
+        self.train_fpr, self.train_tpr, _ = roc_curve(self.train_labels, self.train_predictions)
+        self.train_auc = roc_auc_score(self.train_labels, self.train_predictions)
+        self.test_fpr, self.test_tpr, _ = roc_curve(self.test_labels, self.test_predictions)
+        self.test_auc = roc_auc_score(self.test_labels, self.test_predictions)
 
-    predicted_edge_to_prob = {tuple(edge): prob for edge, prob in zip(predicted_edges.t().tolist(), probabilities.squeeze().tolist())}
+        fig, ax = plt.subplots()
+        ax.plot(self.train_fpr, self.train_tpr, label=f'Train AUC = {self.train_auc:.2f}')
+        ax.plot(self.test_fpr, self.test_tpr, label=f'Test AUC = {self.test_auc:.2f}')
+        ax.plot([0, 1], [0, 1], 'k--')
+        ax.set_xlabel('False Positive Rate')
+        ax.set_ylabel('True Positive Rate')
+        ax.set_title('ROC Curve')
+        ax.legend(loc='upper right')
 
-    aligned_edges_set = true_edges_set.union(predicted_edges_set)
-    aligned_edges = list(aligned_edges_set)
-    aligned_edge_index = torch.tensor(aligned_edges, dtype=torch.long).t()
+        plt.savefig(save_path)
 
-    true_edges_labels = torch.tensor([1 if edge in true_edges_set else 0 for edge in aligned_edges], dtype=torch.float32, requires_grad=True)
-    aligned_probabilities = torch.tensor([predicted_edge_to_prob.get(edge, 0.0) for edge in aligned_edges], dtype=torch.float32, requires_grad=True)
 
-    return true_edges_labels, aligned_edge_index, aligned_probabilities
+def plot_loss(train_loss, test_loss, save_path='plots/loss_plot.png'):
+    fig, ax = plt.subplots()
+    train_x = np.arange(len(train_loss))
+    test_x = np.arange(0, len(test_loss) * 10, 10)
+    ax.plot(train_x, train_loss, label='Train Loss')
+    ax.plot(test_x, test_loss, label='Test Loss')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.legend(loc='upper right')
+    plt.savefig(save_path)
