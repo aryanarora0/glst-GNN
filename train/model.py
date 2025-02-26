@@ -3,12 +3,12 @@ import torch.nn as nn
 from torch_geometric.nn import GATConv
     
 class EdgePredictionGNN(torch.nn.Module):
-    def __init__(self, in_channels, emb_channels, hidden_channels):
+    def __init__(self, in_channels, emb_channels, hidden_channels, edge_dim=1):
         super(EdgePredictionGNN, self).__init__()
-        self.conv1 = GATConv(in_channels, emb_channels)
-        self.conv2 = GATConv(emb_channels, hidden_channels)
+        self.conv1 = GATConv(in_channels, emb_channels, edge_dim=edge_dim, concat=False)
+        self.conv2 = GATConv(emb_channels, hidden_channels, edge_dim=edge_dim, concat=False)
         self.mlp = nn.Sequential(
-            nn.Linear(2 * hidden_channels, hidden_channels),
+            nn.Linear(2 * hidden_channels + edge_dim, hidden_channels),
             nn.ReLU(),
             nn.Linear(hidden_channels, 1)
         )
@@ -20,7 +20,7 @@ class EdgePredictionGNN(torch.nn.Module):
         x = x.relu()
 
         src, dst = x[edge_index[0]], x[edge_index[1]]
-        x = torch.cat([src, dst], dim=-1)
+        x = torch.cat([src, edge_attr, dst], dim=-1)
 
         x = self.mlp(x)
         return x

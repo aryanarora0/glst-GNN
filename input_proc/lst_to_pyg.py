@@ -1,4 +1,5 @@
 import os
+
 import torch
 import awkward as ak
 import uproot
@@ -23,6 +24,7 @@ class GraphBuilder:
         self.input_tree = uproot.open(input_path)["tree"]
 
     def process_event(self, event_data, idx, debug=False):
+
         """Processes a single event and saves the graph."""
         output_file = os.path.join(self.output_path, f"graph_nolayer_{idx}.pt")
 
@@ -33,12 +35,13 @@ class GraphBuilder:
         edge_index = torch.tensor(ak.to_dataframe(event_data[EDGE_INDEX]).values.T).to(torch.int64)
         edge_feature = torch.tensor(ak.to_dataframe(event_data[EDGE_FEATURES]).values)
         y = torch.logical_not(torch.tensor(ak.to_dataframe(event_data[Y_VAL]).values)).int().view(-1)
+
         graph = Data(x=node_features, edge_index=edge_index, edge_attr=edge_feature, y=y)
 
         if debug:
             print(graph)
+
         torch.save(graph, output_file)
-        print(f"Saved graph {idx}")
 
     def process_events_in_parallel(self, n_workers, debug=False):
         num_events = self.input_tree.num_entries if not debug else 1

@@ -77,10 +77,10 @@ class PerformanceEvaluator:
         plt.savefig(save_path)
 
 
-def plot_loss(train_loss, test_loss, save_path='plots/loss_plot.png'):
+def plot_loss(train_loss, test_loss, test_step, save_path='plots/loss_plot.png'):
     fig, ax = plt.subplots()
     train_x = np.arange(len(train_loss))
-    test_x = np.arange(0, len(test_loss) * 10, 10)
+    test_x = np.arange(0, len(test_loss) * test_step, test_step)
     ax.plot(train_x, train_loss, label='Train Loss')
     ax.plot(test_x, test_loss, label='Test Loss')
     ax.set_xlabel('Epoch')
