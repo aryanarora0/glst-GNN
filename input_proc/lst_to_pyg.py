@@ -6,14 +6,13 @@ from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from torch_geometric.data import Data
 from argparse import ArgumentParser
-import time 
 
-NODE_FEATURES = ["MD_0_x", "MD_0_y", "MD_0_z", "MD_0_r", "MD_1_x", "MD_1_y", "MD_1_z", "MD_1_r", "MD_eta", "MD_phi",
-                 "MD_pt", "MD_dphichange"]
+NODE_FEATURES = ["MD_0_x", "MD_0_y", "MD_0_z", "MD_0_r", "MD_1_x", "MD_1_y", "MD_1_z", "MD_1_r", "MD_eta", "MD_phi"
+    , "MD_dphichange"]
 EDGE_FEATURES = ["LS_pt", "LS_eta", "LS_phi"]
 EDGE_INDEX = ["LS_MD_idx0", "LS_MD_idx1"]
 Y_VAL = ["LS_isFake"]
-
+ALL_COLUMNS = NODE_FEATURES + EDGE_FEATURES + EDGE_INDEX + Y_VAL
 
 class GraphBuilder:
     def __init__(self, input_path, output_path):
@@ -30,12 +29,10 @@ class GraphBuilder:
         if os.path.exists(output_file):
             print(f"Graph {idx} already exists, skipping...")
             return
-
-        node_features = torch.tensor(event_data[NODE_FEATURES].values)
-        edge_index = torch.tensor(event_data[EDGE_INDEX].values)  # Fixed variable
-        edge_feature = torch.tensor(event_data[EDGE_FEATURES].values)  # Fixed variable
-        y = torch.logical_not(torch.tensor(event_data[Y_VAL])).int()
-
+        node_features = torch.tensor(ak.to_dataframe(event_data[NODE_FEATURES]).values)
+        edge_index = torch.tensor(ak.to_dataframe(event_data[EDGE_INDEX]).values.T).to(torch.int64)
+        edge_feature = torch.tensor(ak.to_dataframe(event_data[EDGE_FEATURES]).values)
+        y = torch.logical_not(torch.tensor(ak.to_dataframe(event_data[Y_VAL]).values)).int().view(-1)
         graph = Data(x=node_features, edge_index=edge_index, edge_attr=edge_feature, y=y)
 
         if debug:
@@ -45,16 +42,16 @@ class GraphBuilder:
 
     def process_events_in_parallel(self, n_workers, debug=False):
         num_events = self.input_tree.num_entries if not debug else 1
-        t1 = time.time()
+        n_workers =  min(n_workers, os.cpu_count() // 2)
+
         with ProcessPoolExecutor(max_workers=n_workers) as executor:
                 for idx in range(num_events):
                     executor.submit(
                     self.process_event,
-                    ak.to_dataframe(self.input_tree.arrays(entry_start=idx, entry_stop=idx + 1)),
-                    idx)
+                    self.input_tree.arrays(ALL_COLUMNS, entry_start=idx, entry_stop=idx + 1),
+                    idx, debug)
 
-        t2 = time.time() 
-        print("time", t2-t1)
+
 if __name__ == "__main__":
     argparser = ArgumentParser()
     argparser.add_argument("--input_path", type=str, required=True)

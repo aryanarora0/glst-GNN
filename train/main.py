@@ -20,12 +20,13 @@ if __name__ == "__main__":
     argparser.add_argument('--debug', action='store_true', help='debug mode')
     args = argparser.parse_args()
 
-    transform = T.Compose([T.LocalDegreeProfile()])
+    #transform = T.Compose([T.LocalDegreeProfile()])
 
+    #TODO: put this path in a config file
     if args.debug:
-        dataset = GraphDataset(input_path='../data/relval/', regex='graph_nolayer_*.pkl', subset=10, transform=transform)
+        dataset = GraphDataset(input_path='/scratch/gpfs/IOJALVO/gnn-tracking/object_condensation/glst/lst_graphs/', regex='graph_nolayer_*.pt')
     else:
-        dataset = GraphDataset(input_path='../data/relval/', regex='graph_nolayer_*.pkl', transform=transform)
+        dataset = GraphDataset(input_path='/scratch/gpfs/IOJALVO/gnn-tracking/object_condensation/glst/lst_graphs/', regex='graph_nolayer_*.pt')
 
     test_size = 0.2
     train_dataset, test_dataset = train_test_split(dataset, test_size=test_size, random_state=42)
@@ -36,7 +37,7 @@ if __name__ == "__main__":
     print("Train dataset length:", len(train_dataset))
     print("Test dataset length:", len(test_dataset))
 
-    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = EdgePredictionGNN(
         in_channels=dataset[0].num_node_features,
