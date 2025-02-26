@@ -16,7 +16,8 @@ from helpers import PerformanceEvaluator, plot_loss
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
-    argparser.add_argument('--epochs', type=int, default=31, help='number of epochs to train')
+    argparser.add_argument('--epochs', type=int, default=30, help='number of epochs to train')
+    argparser.add_argument('--test_step', type=int, default=5, help='number of epochs between tests')
     argparser.add_argument('--debug', action='store_true', help='debug mode')
     args = argparser.parse_args()
 
@@ -38,24 +39,27 @@ if __name__ == "__main__":
 
     device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
+    num_node_features = dataset[0].num_node_features
+    num_edge_attrs = dataset[0].num_edge_features
+
     model = EdgePredictionGNN(
-        in_channels=dataset[0].num_node_features,
+        in_channels=num_node_features,
         emb_channels=64,
         hidden_channels=16,
     )
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([1000], device=device))
-    lr_scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=4, gamma=0.1)
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([30.], device=device))
+    lr_scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5)
 
     train_loss, test_loss = [], []
-    for epoch in range(args.epochs):
+    for epoch in range(1, args.epochs+1):
         print(f"Epoch {epoch}: ", end='')
         tr_loss = train(model, device, optimizer, lr_scheduler, criterion, train_loader)
         train_loss.append(tr_loss)
 
-        if epoch % 10 == 0:
+        if epoch % args.test_step == 0:
             te_loss = test(model, device, criterion, test_loader)
             test_loss.append(te_loss)
             print(f"Train Loss: {tr_loss:.4f}, Test loss: {te_loss:.4f}")
@@ -65,4 +69,5 @@ if __name__ == "__main__":
     pe = PerformanceEvaluator(model, device, train_loader, test_loader)
     pe.plot_precision_recall_curve()
     pe.plot_roc_curve()
-    plot_loss(train_loss, test_loss)
+    
+    plot_loss(train_loss, test_loss, args.test_step)
