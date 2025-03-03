@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 from model import EdgePredictionGNN
 from dataset import GraphDataset
 from train import train, test
-from helpers import PerformanceEvaluator, plot_loss
+from helpers import PerformanceEvaluator, plot_loss, ColumnWiseNormalizeFeatures
 
 if __name__ == "__main__":
     argparser = ArgumentParser()
@@ -21,13 +21,12 @@ if __name__ == "__main__":
     argparser.add_argument('--debug', action='store_true', help='debug mode')
     args = argparser.parse_args()
 
-    #transform = T.Compose([T.LocalDegreeProfile()])
-
     #TODO: put this path in a config file
+    transform = None
     if args.debug:
-        dataset = GraphDataset(input_path='/scratch/gpfs/IOJALVO/gnn-tracking/object_condensation/glst/lst_graphs/', regex='graph_nolayer_*.pt')
+        dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', subset=10)
     else:
-        dataset = GraphDataset(input_path='/scratch/gpfs/IOJALVO/gnn-tracking/object_condensation/glst/lst_graphs/', regex='graph_nolayer_*.pt')
+        dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', transform=transform)
 
     test_size = 0.2
     train_dataset, test_dataset = train_test_split(dataset, test_size=test_size, random_state=42)
@@ -45,8 +44,9 @@ if __name__ == "__main__":
 
     model = EdgePredictionGNN(
         in_channels=num_node_features,
+        edge_dim=num_edge_attrs,
         emb_channels=64,
-        hidden_channels=16,
+        hidden_channels=16
     )
     model.to(device)
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     lr_scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5)
 
     train_loss, test_loss = [], []
-    for epoch in range(1, args.epochs+1):
+    for epoch in range(args.epochs+1):
         print(f"Epoch {epoch}: ", end='')
         tr_loss = train(model, device, optimizer, lr_scheduler, criterion, train_loader)
         train_loss.append(tr_loss)

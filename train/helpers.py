@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch_geometric.transforms import BaseTransform
 
 from sklearn.metrics import roc_curve, roc_auc_score, precision_recall_curve
 
@@ -87,3 +88,23 @@ def plot_loss(train_loss, test_loss, test_step, save_path='plots/loss_plot.png')
     ax.set_ylabel('Loss')
     ax.legend(loc='upper right')
     plt.savefig(save_path)
+
+class ColumnWiseNormalizeFeatures(BaseTransform):
+    def __call__(self, data):
+        if hasattr(data, 'x') and data.x is not None:
+            mean = data.x.mean(dim=0, keepdim=True) 
+            std = data.x.std(dim=0, keepdim=True) 
+            
+            std[std == 0] = 1  
+            
+            data.x = (data.x - mean) / std 
+
+        if hasattr(data, 'edge_attr') and data.edge_attr is not None:
+            mean = data.edge_attr.mean(dim=0, keepdim=True)
+            std = data.edge_attr.std(dim=0, keepdim=True)
+
+            std[std == 0] = 1
+            
+            data.edge_attr = (data.edge_attr - mean) / std
+            
+        return data
