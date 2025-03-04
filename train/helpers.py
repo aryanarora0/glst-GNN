@@ -53,8 +53,8 @@ class PerformanceEvaluator:
         fig, ax = plt.subplots()
         ax.plot(self.train_recall[5:], self.train_precision[5:])
         ax.plot(self.test_recall[5:], self.test_precision[5:])
-        ax.set_xlabel('Recall')
-        ax.set_ylabel('Precision')
+        ax.set_xlabel('Recall (Efficiency)')
+        ax.set_ylabel('Precision (1 - Fake Rate)')
         ax.set_title('Precision-Recall Curve')
         ax.legend(loc='upper right')
 

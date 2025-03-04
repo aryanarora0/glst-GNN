@@ -9,6 +9,7 @@ class GraphDataset(Dataset):
         self.subset = subset
         self.files = np.random.permutation(glob(input_path + regex))
         self.transform = transform
+        self.cache = {}
 
     def __len__(self):
         if self.subset is not None:
@@ -16,7 +17,10 @@ class GraphDataset(Dataset):
         return len(self.files)
 
     def __getitem__(self, idx):
+        if idx in self.cache:
+            return self.cache[idx]
         graph = torch.load(self.files[idx], weights_only=False)
         if self.transform:
-            return self.transform(graph)
+            graph = self.transform(graph)
+        self.cache[idx] = graph
         return graph
