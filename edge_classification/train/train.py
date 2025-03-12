@@ -12,7 +12,7 @@ def train(model, device, optimizer, lr_scheduler, criterion, train_loader):
         y = y.to(device)
 
         optimizer.zero_grad()
-        predictions = model(x, edge_index, edge_attr).squeeze(-1)
+        predictions = model(x, edge_index, edge_attr, neg_edge_index=edge_index[:, (y==0)]).squeeze(-1)
 
         loss = criterion(predictions, y.float())
 

@@ -21,11 +21,11 @@ if __name__ == "__main__":
     args = argparser.parse_args()
 
     #TODO: put this path in a config file
-    transform = None
+    transform = T.Compose([T.ToUndirected(), ColumnWiseNormalizeFeatures()])
     if args.debug:
         dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', subset=10)
     else:
-        dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', transform=transform, subset=3000)
+        dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', transform=transform, subset=5000)
 
     test_size = 0.2
     train_dataset, test_dataset = random_split(dataset, [1-test_size, test_size])
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
     test_loader = DataLoader(test_dataset, shuffle=False, drop_last=True, num_workers=4, pin_memory=True)    
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
 
     num_node_features = dataset[0].num_node_features
     num_edge_attrs = dataset[0].num_edge_features
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     model.to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=0.01)
-    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([30.], device=device))
+    criterion = torch.nn.BCEWithLogitsLoss(pos_weight=torch.tensor([12.13], device=device))
     lr_scheduler = optim.lr_scheduler.LinearLR(optimizer, start_factor=0.5)
 
     train_loss, test_loss = [], []
