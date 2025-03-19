@@ -12,9 +12,9 @@ from sklearn.cluster import DBSCAN
 
 from model import GravNetGNN
 from dataset import GraphDataset
-from train import train, test
-from helpers import PerformanceEvaluator, plot_loss
+from train import train
 from losses import CondensationLoss
+from helpers import plot_loss
 
 from tqdm import tqdm
 import numpy as np
@@ -31,9 +31,9 @@ if __name__ == "__main__":
     if args.debug:
         dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', subset=10, transform=transform)
     else:
-        dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', transform=transform)
+        dataset = GraphDataset(input_path='../data/relval/', regex='graph_*.pt', subset=1000, transform=transform)
 
-    test_size = 0.2
+    test_size = 0.01
     train_dataset, test_dataset = train_test_split(dataset, test_size=test_size, random_state=42)
 
     train_loader = DataLoader(train_dataset, shuffle=True, drop_last=True, num_workers=4, pin_memory=True)
@@ -53,36 +53,40 @@ if __name__ == "__main__":
     )
     model.to(device)
 
-    optimizer = optim.Adam(model.parameters(), lr=0.01)
-    criterion = CondensationLoss(q_min=0.1)
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    criterion = CondensationLoss(q_min=1)
 
+    tot_losses = {}
     for epoch in tqdm(range(1, args.epochs+1)):
-        model_out, loss = train(model, device, optimizer, criterion, train_loader, epoch)
+        model_out, losses = train(model, device, optimizer, criterion, train_loader, epoch)
+        for key, value in losses.items():
+            if key not in tot_losses:
+                tot_losses[key] = []
+            tot_losses[key].append(value)        
         if epoch > 0 and epoch % args.save_step == 0:
             torch.save(model.state_dict(), f"models/model_{epoch}.pt")
             print(f"Model saved at epoch {epoch}")
 
-    # model.load_state_dict(torch.load("models/model_50.pt"))
-    # model.eval()
+    plot_loss(tot_losses)
 
-    # for data in test_loader:
-    #     data = data.to(device)
-    #     out = model(data)
-    #     X = out["H"].cpu().detach().numpy()
-    #     cluster = DBSCAN(eps=1, min_samples=3).fit(X)
+    for data in test_loader:
+        data = data.to(device)
+        out = model(data)
+        X = out["H"].cpu().detach().numpy()
+        cluster = DBSCAN(eps=0.1, min_samples=2).fit(X)
         
-    #     data_labels = data.y.cpu().detach().numpy().flatten()
-    #     uniq_data_labels = sorted(set(data_labels))
-    #     for uniq_cl in uniq_data_labels:
-    #         if uniq_cl == -1:
-    #             continue
-    #         num_elements_true = np.sum(data_labels == uniq_cl)
-    #         first_idx = np.where(data_labels == uniq_cl)[0][0]
-    #         if cluster.labels_[first_idx] == -1:
-    #             continue
-    #         num_elements_pred = np.sum(cluster.labels_ == cluster.labels_[first_idx])
-    #         print(f"Cluster {uniq_cl}: {num_elements_true} true elements, {num_elements_pred} identified elements")
-    #     print(f"Number of true clusters: {len(uniq_data_labels)}")
-    #     print(f"Number of predicted clusters: {len(set(cluster.labels_)) - 1}")
-    #     print(f"Number of noisy segments: {np.sum(cluster.labels_ == -1)}")
-    #     break
+        data_labels = data.y.cpu().detach().numpy().flatten()
+        uniq_data_labels = sorted(set(data_labels))
+        for uniq_cl in uniq_data_labels:
+            if uniq_cl == -1:
+                continue
+            num_elements_true = np.sum(data_labels == uniq_cl)
+            first_idx = np.where(data_labels == uniq_cl)[0][0]
+            if cluster.labels_[first_idx] == -1:
+                continue
+            num_elements_pred = np.sum(cluster.labels_ == cluster.labels_[first_idx])
+            print(f"Cluster {uniq_cl}: {num_elements_true} true elements, {num_elements_pred} identified elements")
+        print(f"Number of true clusters: {len(uniq_data_labels)}")
+        print(f"Number of predicted clusters: {len(set(cluster.labels_)) - 1}")
+        print(f"Number of noisy segments: {np.sum(cluster.labels_ == -1)}")
+        break

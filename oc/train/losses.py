@@ -108,8 +108,7 @@ class CondensationLoss(nn.Module):
             "attractive": v_att,
             "repulsive": v_rep,
             "coward": l_coward,
-            "noise": l_noise,
-            "n_rep": n_rep,
+            "noise": l_noise
         }
 
     def forward(

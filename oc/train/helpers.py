@@ -72,14 +72,20 @@ class PerformanceEvaluator:
         plt.savefig(save_path)
 
 
-def plot_loss(train_loss, test_loss, test_step, save_path='plots/loss_plot.png'):
+def plot_loss(loss_dict, test_step=None, save_path='plots/loss_plot.png'):
     fig, ax = plt.subplots()
-    train_x = np.arange(len(train_loss))
-    test_x = np.arange(0, len(test_loss) * test_step, test_step)
-    ax.plot(train_x, train_loss, label='Train Loss')
-    ax.plot(test_x, test_loss, label='Test Loss')
+    for key, value in loss_dict.items():
+        if key == 'test_loss':
+            continue
+        ax.plot(np.arange(len(value)), value, label=key)
+    if 'test_loss' in loss_dict:
+        test_loss = loss_dict['test_loss']
+        if test_step is not None:
+            test_x = np.arange(0, len(test_loss) * test_step, test_step)
+            ax.plot(test_x, test_loss, label='Test Loss')
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
+    # ax.set_yscale('log')
     ax.legend(loc='upper right')
     plt.savefig(save_path)
 
