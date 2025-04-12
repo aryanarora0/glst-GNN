@@ -1,13 +1,12 @@
 from torch_geometric.data import Dataset
 import torch
 from glob import glob
-import numpy as np
 
 class GraphDataset(Dataset):
     def __init__(self, input_path, regex, subset=None, transform=None):
         super().__init__()
         self.subset = subset
-        self.files = np.random.permutation(glob(input_path + regex))
+        self.files = glob(input_path + regex)
         self.transform = transform
 
     def __len__(self):

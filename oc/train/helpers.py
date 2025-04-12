@@ -85,9 +85,10 @@ def plot_loss(loss_dict, test_step=None, save_path='plots/loss_plot.png'):
             ax.plot(test_x, test_loss, label='Test Loss')
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
-    # ax.set_yscale('log')
     ax.legend(loc='upper right')
     plt.savefig(save_path)
+    ax.set_yscale('log')
+    plt.savefig(save_path.replace('.png', '_log.png'))
 
 class ColumnWiseNormalizeFeatures(BaseTransform):
     def __call__(self, data):
@@ -108,3 +109,7 @@ class ColumnWiseNormalizeFeatures(BaseTransform):
             data.edge_attr = (data.edge_attr - mean) / std
             
         return data
+
+def batch_to_rowsplits(batch: torch.Tensor) -> torch.Tensor:
+    counts = torch.bincount(batch)
+    return torch.cat([torch.tensor([0], device=batch.device), counts.cumsum(dim=0)]).to(torch.int32)
