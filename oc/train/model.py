@@ -1,5 +1,6 @@
 import torch.nn as nn
 from torch_geometric.nn import GravNetConv
+import pytorch_lightning as pl
     
 class GravNetGNN(nn.Module):
     def __init__(self, in_dim: int = 23, k: int = 2):

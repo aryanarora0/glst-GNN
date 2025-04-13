@@ -1,6 +1,7 @@
 from torch_geometric.data import Dataset
 import torch
 from glob import glob
+import pytorch_lightning as pl
 
 class GraphDataset(Dataset):
     def __init__(self, input_path, regex, subset=None, transform=None):
