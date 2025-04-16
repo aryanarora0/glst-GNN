@@ -6,10 +6,7 @@ def train(model, device, optimizer, lr_scheduler, criterion, train_loader):
 
     for data in train_loader:
         x, edge_index, edge_attr, y = data.x, data.edge_index, data.edge_attr, data.y
-        x = x.to(device)
-        edge_index = edge_index.to(device)
-        edge_attr = edge_attr.to(device)
-        y = y.to(device)
+        x, edge_index, edge_attr, y = [i.to(device) for i in (x, edge_index, edge_attr, y)]
 
         optimizer.zero_grad()
         predictions = model(x, edge_index, edge_attr, neg_edge_index=edge_index[:, (y==0)]).squeeze(-1)
