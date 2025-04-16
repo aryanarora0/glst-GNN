@@ -29,10 +29,7 @@ def test(model, device, criterion, test_loader):
 
     for data in test_loader:
         x, edge_index, edge_attr, y = data.x, data.edge_index, data.edge_attr, data.y
-        x = x.to(device)
-        edge_index = edge_index.to(device)
-        edge_attr = edge_attr.to(device)
-        y = y.to(device)
+        x, edge_index, edge_attr, y = [i.to(device) for i in (x, edge_index, edge_attr, y)]
 
         predictions = model(x, edge_index, edge_attr).squeeze()
         loss = criterion(predictions, y.float())
